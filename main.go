@@ -1,58 +1,148 @@
 package main
 
 import (
-    "github.com/minio/minio-go"
-    "github.com/QuentinPerez/go-radosgw/pkg/api"
     "github.com/gin-gonic/gin"
+    "github.com/file-api-server/utils"
     "log"
+    "os"
+    //"fmt"
+    "net/http"
 )
 
+var s3client = utils.S3Backend{
+    Endpoint: "127.0.0.1:9000",
+    AccessKeyID: "test",
+    SecretAccessKey: "Test2017",
+    SSL: false,
+    Location: "us-east-1",
+}
+type Bucket struct {
+    BucketName string `uri:"bucket" binding:"required"`
+}
+
+type File struct {
+    BucketName string `uri:"bucket" binding:"required"`
+    FileName string `uri:"file" binding:"required"`
+}
+
 func main() {
-    endpoint := "127.0.0.1:9000"
-    accessKeyID := "test"
-    secretAccessKey := "Test2017"
-    useSSL := false
-
-    minioClient, err := minio.New(endpoint, accessKeyID, secretAccessKey, useSSL)
+    f, err := os.OpenFile("/tmp/logfile.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
     if err != nil {
-        log.Fatalln(err)
+        log.Printf("log file open error : %v", err)
     }
+    defer f.Close()
+    //log.SetOutput(f)
 
-    bucketName := "mymusic"
-    location := "us-east-1"
-
-    err = minioClient.MakeBucket(bucketName, location)
-
-    if err != nil {
-        exists, err := minioClient.BucketExists(bucketName)
-        if err == nil && exists {
-            log.Printf("We already own %s\n", bucketName)
-        } else {
-            log.Printf("The bucket name %s is not unique\n", bucketName)
-            log.Fatalln(err)
-        }
-    }
-    log.Printf("Successfully created %s\n", bucketName)
-
-    objectName := "main.go"
-    filePath := "./main.go"
-    contentType := "application/text"
-
-    n, err := minioClient.FPutObject(bucketName, objectName, filePath, minio.PutObjectOptions{ContentType:contentType})
-    if err != nil {
-        log.Fatalln(err)
-    }
-
-    log.Printf("Successfully uploaded %s of size %d\n", objectName, n)
-
-    api,_ := radosAPI.New(endpoint, accessKeyID, secretAccessKey)
-    log.Printf("%#v\n", api)
-
+    //gin.SetMode(gin.ReleaseMode)
+    //r := gin.New()
+    //r.Use(gin.Logger())
+    //r.Use(gin.Recovery())
     r := gin.Default()
-    r.GET("/ping", func(c *gin.Context) {
-        c.JSON(200, gin.H{
-            "message": "pong",
+    r.GET("/buckets", listBuckets)
+    r.POST("/bucket/:bucket", createBucket)
+    r.GET("/bucket/:bucket", listBucket)
+    r.GET("/policy/:bucket", getBucketPolicy)
+    r.POST("file/:bucket", uploadFile)
+    r.GET("file/:bucket/:file", downloadFile)
+    r.GET("/health", func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{
+            "message": "ok",
         })
     })
+
     r.Run()
+}
+
+func listBuckets(c *gin.Context) {
+    if buckets,err := s3client.ListBuckets(); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"failed to list buckets": err.Error()})
+    } else {
+        c.JSON(http.StatusOK, buckets)
+    }
+}
+
+func createBucket(c *gin.Context) {
+    var bucket Bucket
+    if err := c.ShouldBindUri(&bucket); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        return
+    }
+    if err := s3client.CreateBucket(c.Param("bucket")); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"failed to create bucket": err.Error()})
+    } else {
+        c.JSON(http.StatusCreated, "")
+    }
+}
+
+func listBucket(c *gin.Context) {
+    var bucket Bucket
+    if err := c.ShouldBindUri(&bucket); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        return
+    }
+    if results,err := s3client.ListBucket(c.Param("bucket"), c.Query("prifix")); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"failed to list files": err.Error()})
+    } else {
+        c.JSON(http.StatusOK, results)
+    }
+}
+
+func getBucketPolicy(c *gin.Context) {
+    var bucket Bucket
+    if err := c.ShouldBindUri(&bucket); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        return
+    }
+    if policy,err := s3client.GetBucketPolicy(bucket.BucketName); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"failed to get bucket policy": err.Error()})
+    } else {
+        c.JSON(http.StatusOK, policy)
+    }
+}
+
+func uploadFile(c *gin.Context) {
+    var bucket Bucket
+    if err := c.ShouldBindUri(&bucket); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"Bad Uri": err.Error()})
+        return
+    }
+
+    file, err := c.FormFile("file");
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"Bad Form Field": err.Error()})
+        return
+    }
+
+    //if err := c.SaveUploadedFile(file, filename); err != nil {
+    //	c.JSON(http.StatusBadRequest, gin.H{"msg": err})
+    //	return
+    //}
+
+    if err := s3client.UploadFile(bucket.BucketName, file); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+    } else {
+        c.JSON(http.StatusCreated, "")
+    }
+}
+
+func downloadFile(c *gin.Context) {
+    var f File
+
+    if err := c.ShouldBindUri(&f); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        return
+    }
+
+    if object,err := s3client.DownloadFile(f.BucketName, f.FileName); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+    } else {
+        if stat,err := object.Stat(); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        } else {
+            //extraHeaders := map[string]string {
+            //    "Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, stat.Key),
+            //}
+            c.DataFromReader(http.StatusOK, stat.Size, stat.ContentType, object, map[string]string{})
+        }
+    }
 }
