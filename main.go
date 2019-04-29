@@ -3,10 +3,9 @@ package main
 import (
     "github.com/gin-gonic/gin"
     "github.com/file-api-server/utils"
-    "log"
-    "os"
-    //"fmt"
+    "github.com/golang/glog"
     "net/http"
+    "flag"
 )
 
 var s3client = utils.S3Backend{
@@ -17,21 +16,18 @@ var s3client = utils.S3Backend{
     Location: "us-east-1",
 }
 type Bucket struct {
-    BucketName string `uri:"bucket" binding:"required"`
+    BucketName  string `uri:"bucket" binding:"required"`
 }
 
 type File struct {
-    BucketName string `uri:"bucket" binding:"required"`
-    FileName string `uri:"file" binding:"required"`
+    BucketName  string `uri:"bucket" binding:"required"`
+    FileName    string `uri:"file" binding:"required"`
 }
 
 func main() {
-    f, err := os.OpenFile("/tmp/logfile.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-    if err != nil {
-        log.Printf("log file open error : %v", err)
-    }
-    defer f.Close()
-    //log.SetOutput(f)
+    //flag.Set("stderrthreshold", "INFO")
+    flag.Parse()
+    defer glog.Flush()
 
     //gin.SetMode(gin.ReleaseMode)
     //r := gin.New()
@@ -41,9 +37,11 @@ func main() {
     r.GET("/buckets", listBuckets)
     r.POST("/bucket/:bucket", createBucket)
     r.GET("/bucket/:bucket", listBucket)
+    r.DELETE("/bucket/:bucket", deleteBucket)
     r.GET("/policy/:bucket", getBucketPolicy)
     r.POST("file/:bucket", uploadFile)
     r.GET("file/:bucket/:file", downloadFile)
+    r.DELETE("file/:bucket/:file", deleteFile)
     r.GET("/health", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{
             "message": "ok",
@@ -70,7 +68,20 @@ func createBucket(c *gin.Context) {
     if err := s3client.CreateBucket(c.Param("bucket")); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to create bucket": err.Error()})
     } else {
-        c.JSON(http.StatusCreated, "")
+        c.String(http.StatusCreated, "")
+    }
+}
+
+func deleteBucket(c *gin.Context) {
+    var bucket Bucket
+    if err := c.ShouldBindUri(&bucket); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        return
+    }
+    if err := s3client.RemoveBucket(c.Param("bucket")); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"failed to remove bucket": err.Error()})
+    } else {
+        c.String(http.StatusOK, "")
     }
 }
 
@@ -96,7 +107,7 @@ func getBucketPolicy(c *gin.Context) {
     if policy,err := s3client.GetBucketPolicy(bucket.BucketName); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to get bucket policy": err.Error()})
     } else {
-        c.JSON(http.StatusOK, policy)
+        c.String(http.StatusOK, policy)
     }
 }
 
@@ -121,7 +132,7 @@ func uploadFile(c *gin.Context) {
     if err := s3client.UploadFile(bucket.BucketName, file); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
     } else {
-        c.JSON(http.StatusCreated, "")
+        c.String(http.StatusCreated, "")
     }
 }
 
@@ -144,5 +155,20 @@ func downloadFile(c *gin.Context) {
             //}
             c.DataFromReader(http.StatusOK, stat.Size, stat.ContentType, object, map[string]string{})
         }
+    }
+}
+
+func deleteFile(c *gin.Context) {
+    var f File
+
+    if err := c.ShouldBindUri(&f); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        return
+    }
+
+    if err := s3client.RemoveFile(f.BucketName, f.FileName); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+    } else {
+        c.String(http.StatusOK, "")
     }
 }
