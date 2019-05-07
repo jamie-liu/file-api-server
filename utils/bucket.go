@@ -66,7 +66,7 @@ func (s3client *S3Backend) ListBucket(bucketName, prefix string) ([]FileStat, er
 		// Indicate to our routine to exit cleanly upon return.
 		defer close(doneCh)
 
-		isRecursive := true
+		isRecursive := false
 		objectCh := conn.ListObjects(bucketName, prefix, isRecursive, doneCh)
 		results := []FileStat{}
 		for object := range objectCh {

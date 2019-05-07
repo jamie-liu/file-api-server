@@ -42,6 +42,7 @@ func main() {
     r.POST("file/:bucket", uploadFile)
     r.GET("file/:bucket/:file", downloadFile)
     r.DELETE("file/:bucket/:file", deleteFile)
+    r.GET("/key/:bucket", getKey)
     r.GET("/health", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{
             "message": "ok",
@@ -170,5 +171,18 @@ func deleteFile(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
     } else {
         c.String(http.StatusOK, "")
+    }
+}
+
+func getKey(c *gin.Context) {
+    var bucket Bucket
+    if err := c.ShouldBindUri(&bucket); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        return
+    }
+    if key,err := s3client.GetUserFromBucket(bucket.BucketName); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"failed to get bucket policy": err.Error()})
+    } else {
+        c.JSON(http.StatusOK, key)
     }
 }
