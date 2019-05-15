@@ -2,19 +2,18 @@ package main
 
 import (
     "github.com/gin-gonic/gin"
-    "github.com/file-api-server/utils"
+    "github.com/file-api-server/backends"
     "github.com/golang/glog"
     "net/http"
     "flag"
 )
 
-var s3client = utils.S3Backend{
-    Endpoint: "127.0.0.1:9000",
-    AccessKeyID: "test",
-    SecretAccessKey: "Test2017",
-    SSL: false,
-    Location: "us-east-1",
-}
+var (
+    config *backends.Config
+    user   *backends.S3UserInfo
+    admin  *backends.S3UserInfo
+)
+
 type Bucket struct {
     BucketName  string `uri:"bucket" binding:"required"`
 }
@@ -53,7 +52,7 @@ func main() {
 }
 
 func listBuckets(c *gin.Context) {
-    if buckets,err := s3client.ListBuckets(); err != nil {
+    if buckets,err := user.ListBuckets(); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to list buckets": err.Error()})
     } else {
         c.JSON(http.StatusOK, buckets)
@@ -66,7 +65,7 @@ func createBucket(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if err := s3client.CreateBucket(c.Param("bucket")); err != nil {
+    if err := user.CreateBucket(c.Param("bucket")); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to create bucket": err.Error()})
     } else {
         c.String(http.StatusCreated, "")
@@ -79,7 +78,7 @@ func deleteBucket(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if err := s3client.RemoveBucket(c.Param("bucket")); err != nil {
+    if err := user.RemoveBucket(c.Param("bucket")); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to remove bucket": err.Error()})
     } else {
         c.String(http.StatusOK, "")
@@ -92,7 +91,7 @@ func listBucket(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if results,err := s3client.ListBucket(c.Param("bucket"), c.Query("prifix")); err != nil {
+    if results,err := user.ListBucket(c.Param("bucket"), c.Query("prifix")); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to list files": err.Error()})
     } else {
         c.JSON(http.StatusOK, results)
@@ -105,7 +104,7 @@ func getBucketPolicy(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if policy,err := s3client.GetBucketPolicy(bucket.BucketName); err != nil {
+    if policy,err := user.GetBucketPolicy(bucket.BucketName); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to get bucket policy": err.Error()})
     } else {
         c.String(http.StatusOK, policy)
@@ -130,7 +129,7 @@ func uploadFile(c *gin.Context) {
     //	return
     //}
 
-    if err := s3client.UploadFile(bucket.BucketName, file); err != nil {
+    if err := user.UploadFile(bucket.BucketName, file); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
     } else {
         c.String(http.StatusCreated, "")
@@ -145,7 +144,7 @@ func downloadFile(c *gin.Context) {
         return
     }
 
-    if object,err := s3client.DownloadFile(f.BucketName, f.FileName); err != nil {
+    if object,err := user.DownloadFile(f.BucketName, f.FileName); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
     } else {
         if stat,err := object.Stat(); err != nil {
@@ -167,7 +166,7 @@ func deleteFile(c *gin.Context) {
         return
     }
 
-    if err := s3client.RemoveFile(f.BucketName, f.FileName); err != nil {
+    if err := user.RemoveFile(f.BucketName, f.FileName); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
     } else {
         c.String(http.StatusOK, "")
@@ -180,7 +179,7 @@ func getKey(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if key,err := s3client.GetUserFromBucket(bucket.BucketName); err != nil {
+    if key,err := admin.GetUserOfBucket(bucket.BucketName); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to get bucket policy": err.Error()})
     } else {
         c.JSON(http.StatusOK, key)
