@@ -67,7 +67,7 @@ func (user *S3UserInfo) RemoveBucket(bucketName string) error {
     return nil
 }
 
-func (user *S3UserInfo) ListBucket(bucketName, prefix string) ([]FileStat, error) {
+func (user *S3UserInfo) ListBucket(bucketName, prefix string, recursive bool) ([]FileStat, error) {
     conn, err := initConnectionWithRegion(user.Endpoint, user.AccessKey, user.SecretKey, user.SSL, user.Location)
     if err != nil {
         glog.Errorln(err)
@@ -84,8 +84,7 @@ func (user *S3UserInfo) ListBucket(bucketName, prefix string) ([]FileStat, error
         // Indicate to our routine to exit cleanly upon return.
         defer close(doneCh)
 
-        isRecursive := false
-        objectCh := conn.ListObjects(bucketName, prefix, isRecursive, doneCh)
+        objectCh := conn.ListObjects(bucketName, prefix, recursive, doneCh)
         results := []FileStat{}
         for object := range objectCh {
             results = append(results, FileStat{

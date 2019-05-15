@@ -1,0 +1,14 @@
+cm: 127.0.0.1/index.html
+users:
+  admin:
+    endpoint: http://127.0.0.1:9000
+    accesskey: test
+    secretkey: Test2017
+    ssl: false
+    location: us-east-1
+  user:
+    endpoint: 127.0.0.1:9000
+    accesskey: test
+    secretkey: Test2017
+    ssl: false
+    location: us-east-1

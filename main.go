@@ -2,14 +2,16 @@ package main
 
 import (
     "github.com/gin-gonic/gin"
+    "github.com/file-api-server/utils"
     "github.com/file-api-server/backends"
     "github.com/golang/glog"
     "net/http"
     "flag"
+    "strconv"
 )
 
 var (
-    config *backends.Config
+    config backends.Config
     user   *backends.S3UserInfo
     admin  *backends.S3UserInfo
 )
@@ -28,6 +30,10 @@ func main() {
     flag.Parse()
     defer glog.Flush()
 
+    utils.LoadConfig("config.yaml", &config)
+    user = config.Users["user"]
+    admin = config.Users["admin"]
+
     //gin.SetMode(gin.ReleaseMode)
     //r := gin.New()
     //r.Use(gin.Logger())
@@ -41,7 +47,7 @@ func main() {
     r.POST("file/:bucket", uploadFile)
     r.GET("file/:bucket/:file", downloadFile)
     r.DELETE("file/:bucket/:file", deleteFile)
-    r.GET("/key/:bucket", getKey)
+    r.GET("/key/:bucket", getUserKey)
     r.GET("/health", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{
             "message": "ok",
@@ -91,7 +97,8 @@ func listBucket(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if results,err := user.ListBucket(c.Param("bucket"), c.Query("prifix")); err != nil {
+    recursive,_ := strconv.ParseBool(c.DefaultQuery("recursive", "false"))
+    if results,err := user.ListBucket(c.Param("bucket"), c.Query("prifix"), recursive); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"failed to list files": err.Error()})
     } else {
         c.JSON(http.StatusOK, results)
@@ -173,14 +180,14 @@ func deleteFile(c *gin.Context) {
     }
 }
 
-func getKey(c *gin.Context) {
+func getUserKey(c *gin.Context) {
     var bucket Bucket
     if err := c.ShouldBindUri(&bucket); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
     if key,err := admin.GetUserOfBucket(bucket.BucketName); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"failed to get bucket policy": err.Error()})
+        c.JSON(http.StatusInternalServerError, gin.H{"failed to get key": err.Error()})
     } else {
         c.JSON(http.StatusOK, key)
     }
