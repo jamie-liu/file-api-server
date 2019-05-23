@@ -105,6 +105,12 @@
 			"revisionTime": "2018-07-18T01:23:57Z"
 		},
 		{
+			"checksumSHA1": "cHhcgLL9TO/Lbv8mUGNsC63TI2w=",
+			"path": "github.com/rakyll/statik/fs",
+			"revision": "3bac566d30cdbeddef402a80f3d6305860e59f12",
+			"revisionTime": "2019-03-20T18:56:11Z"
+		},
+		{
 			"checksumSHA1": "1KA6FgHyBKaIqBbOMFYt5wkMap8=",
 			"path": "github.com/sirupsen/logrus",
 			"revision": "a6c0064cfaf982707445a1c90368f956421ebcf0",

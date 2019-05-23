@@ -5,9 +5,11 @@ import (
     "github.com/file-api-server/utils"
     "github.com/file-api-server/backends"
     "github.com/golang/glog"
+    "github.com/rakyll/statik/fs"
     "net/http"
     "flag"
     "strconv"
+    _ "github.com/file-api-server/statik"
 )
 
 var (
@@ -54,12 +56,19 @@ func main() {
         })
     })
 
+    //r.Static("/swagger-ui/", "./swagger-ui")
+    if statikFS,err := fs.New(); err != nil {
+        glog.Errorln(err)
+    } else {
+        r.StaticFS("/swagger-ui/", statikFS)
+    }
+
     r.Run()
 }
 
 func listBuckets(c *gin.Context) {
     if buckets,err := user.ListBuckets(); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"failed to list buckets": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to get bucket list": err.Error()})
     } else {
         c.JSON(http.StatusOK, buckets)
     }
@@ -72,7 +81,7 @@ func createBucket(c *gin.Context) {
         return
     }
     if err := user.CreateBucket(c.Param("bucket")); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"failed to create bucket": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to create bucket": err.Error()})
     } else {
         c.String(http.StatusCreated, "")
     }
@@ -85,7 +94,7 @@ func deleteBucket(c *gin.Context) {
         return
     }
     if err := user.RemoveBucket(c.Param("bucket")); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"failed to remove bucket": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to remove bucket": err.Error()})
     } else {
         c.String(http.StatusOK, "")
     }
@@ -99,7 +108,7 @@ func listBucket(c *gin.Context) {
     }
     recursive,_ := strconv.ParseBool(c.DefaultQuery("recursive", "false"))
     if results,err := user.ListBucket(c.Param("bucket"), c.Query("prifix"), recursive); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"failed to list files": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to list bucket": err.Error()})
     } else {
         c.JSON(http.StatusOK, results)
     }
@@ -112,7 +121,7 @@ func getBucketPolicy(c *gin.Context) {
         return
     }
     if policy,err := user.GetBucketPolicy(bucket.BucketName); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"failed to get bucket policy": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to get bucket policy": err.Error()})
     } else {
         c.String(http.StatusOK, policy)
     }
@@ -137,7 +146,7 @@ func uploadFile(c *gin.Context) {
     //}
 
     if err := user.UploadFile(bucket.BucketName, file); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to upload file": err.Error()})
     } else {
         c.String(http.StatusCreated, "")
     }
@@ -152,10 +161,10 @@ func downloadFile(c *gin.Context) {
     }
 
     if object,err := user.DownloadFile(f.BucketName, f.FileName); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to download file": err.Error()})
     } else {
         if stat,err := object.Stat(); err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+            c.JSON(http.StatusNotFound, gin.H{"failed to get file stat": err.Error()})
         } else {
             //extraHeaders := map[string]string {
             //    "Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, stat.Key),
@@ -174,7 +183,7 @@ func deleteFile(c *gin.Context) {
     }
 
     if err := user.RemoveFile(f.BucketName, f.FileName); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to delete file": err.Error()})
     } else {
         c.String(http.StatusOK, "")
     }
@@ -187,7 +196,7 @@ func getUserKey(c *gin.Context) {
         return
     }
     if key,err := admin.GetUserOfBucket(bucket.BucketName); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"failed to get key": err.Error()})
+        c.JSON(http.StatusNotFound, gin.H{"failed to get user key": err.Error()})
     } else {
         c.JSON(http.StatusOK, key)
     }
