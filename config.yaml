@@ -6,9 +6,12 @@ users:
     secretkey: Test2017
     ssl: false
     location: us-east-1
-  user:
+  cloud:
     endpoint: 127.0.0.1:9000
     accesskey: test
     secretkey: Test2017
     ssl: false
     location: us-east-1
+buckets:
+  jamieliu:
+    mytest: rw

@@ -41,8 +41,8 @@ func GenerateRSAKey(bits int, privateFile, publicFile string) error {
     return pem.Encode(publicFd, &publicBlock)
 }
 
-func RsaEncrypt(plainText, path string) (string, error) {
-    content, err := ioutil.ReadFile(path)
+func RsaEncrypt(plainText, publicFile string) (string, error) {
+    content, err := ioutil.ReadFile(publicFile)
     if err != nil {
         return "", err
     }
@@ -60,8 +60,8 @@ func RsaEncrypt(plainText, path string) (string, error) {
     }
 }
 
-func RsaDecrypt(cipherText, path string) (string, error) {
-    content, err := ioutil.ReadFile(path)
+func RsaDecrypt(cipherText, privateFile string) (string, error) {
+    content, err := ioutil.ReadFile(privateFile)
     if err != nil {
         return "", err
     }

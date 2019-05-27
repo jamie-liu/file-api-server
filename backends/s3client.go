@@ -189,7 +189,6 @@ func (user *S3UserInfo) DownloadFile(bucketName, objectName string) (*minio.Obje
         return nil, fmt.Errorf("Bucket %s doesn't exist\n", bucketName)
     }
 
-    //if err := conn.FGetObject(bucketName, objectName, filePath, minio.GetObjectOptions{}); err != nil {
     return conn.GetObject(bucketName, objectName, minio.GetObjectOptions{})
 }
 

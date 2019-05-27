@@ -1,369 +1,441 @@
 {
-    "swagger": "2.0",
-    "info": {
-        "description": "This is a s3 file api server.",
-        "title": "S3 File API server",
-        "contact": {},
-        "license": {},
-        "version": "1.0"
+  "swagger": "2.0",
+  "info": {
+    "description": "This is a s3 file api server.",
+    "title": "S3 File API server",
+    "contact": {
+      "email": "ljshoot@hotmail.com"
     },
-    "schemes": ["http"],
-    "paths": {
-        "/bucket/{bucket}": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "bucket"
-                ],
-                "summary": "List files in the bucket",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "bucket name",
-                        "name": "bucket",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "list object with specified prifix only, default is null",
-                        "name": "prifix",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "recursive or not, default is false",
-                        "name": "recursive",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "file stats",
-                        "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/backends.FileStat"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request"
-                    },
-                    "404": {
-                        "description": "{\"failed to list files\": err.Error()}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "bucket"
-                ],
-                "summary": "Create bucket",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "bucket name",
-                        "name": "bucket",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Success"
-                    },
-                    "400": {
-                        "description": "Bad request"
-                    },
-                    "404": {
-                        "description": "{\"failed to create bucket\": err.Error()}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "bucket"
-                ],
-                "summary": "Delete bucket",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "bucket name",
-                        "name": "bucket",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success"
-                    },
-                    "400": {
-                        "description": "Bad request"
-                    },
-                    "404": {
-                        "description": "{\"failed to remove bucket\": err.Error()}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
+    "version": "1.0"
+  },
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/bucket/{bucket}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "bucket"
+        ],
+        "summary": "List files in the bucket",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "bucket name",
+            "name": "bucket",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "list object with specified prifix only, default is null",
+            "name": "prifix",
+            "in": "query"
+          },
+          {
+            "type": "boolean",
+            "description": "recursive or not, default is false",
+            "name": "recursive",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "file stats",
+            "schema": {
+              "$ref": "#/definitions/backends.FileStat"
             }
-        },
-        "/buckets": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "bucket"
-                ],
-                "summary": "List all buckets",
-                "responses": {
-                    "200": {
-                        "description": "An array of bucket info",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/backends.BucketInfo"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "{\"failed to list buckets\": err.Error()}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "{failed to list files: err.Error()}",
+            "schema": {
+              "type": "string"
             }
-        },
-        "/file/{bucket}": {
-            "post": {
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "file"
-                ],
-                "summary": "Upload file",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "bucket name",
-                        "name": "bucket",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": "file path",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Success"
-                    },
-                    "400": {
-                        "description": "Bad request"
-                    },
-                    "404": {
-                        "description": "{\"failed to upload file\": err.Error()}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/file/{bucket}/{file}": {
-            "get": {
-                "produces": [
-                    "application/octet-stream"
-                ],
-                "tags": [
-                    "file"
-                ],
-                "summary": "Download file",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "bucket name",
-                        "name": "bucket",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "file name",
-                        "name": "file",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success"
-                    },
-                    "400": {
-                        "description": "Bad request"
-                    },
-                    "404": {
-                        "description": "{\"failed to download file: err.Error()}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "file"
-                ],
-                "summary": "Delete file",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "bucket name",
-                        "name": "bucket",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "file name",
-                        "name": "file",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success"
-                    },
-                    "400": {
-                        "description": "Bad request"
-                    },
-                    "404": {
-                        "description": "{\"failed to delete file\": err.Error()}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/key/{bucket}": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "bucket"
-                ],
-                "summary": "Query user key of the bucket",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "bucket name",
-                        "name": "bucket",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "S3 info",
-                        "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/backends.S3Key"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "{\"failed to get key\": err.Error()}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
+          }
         }
+      },
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "bucket"
+        ],
+        "summary": "Create bucket",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "bucket name",
+            "name": "bucket",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "{failed to create bucket: err.Error()}",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "bucket"
+        ],
+        "summary": "Delete bucket",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "bucket name",
+            "name": "bucket",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "{failed to remove bucket: err.Error()}",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
     },
-    "definitions": {
-        "backends.BucketInfo": {
-            "type": "object",
-            "properties": {
-                "creationDate": {
-                    "description": "Date the bucket was created.",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "The name of the bucket.",
-                    "type": "string"
-                }
+    "/buckets": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "bucket"
+        ],
+        "summary": "List all buckets",
+        "responses": {
+          "200": {
+            "description": "An array of bucket info",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/backends.BucketInfo"
+              }
             }
-        },
-        "backends.FileStat": {
-            "type": "object",
-            "properties": {
-                "lastModified": {
-                    "description": "Date and time the object was last modified.",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Name of the object",
-                    "type": "string"
-                },
-                "size": {
-                    "description": "Size in bytes of the object.",
-                    "type": "integer"
-                }
+          },
+          "404": {
+            "description": "{failed to list buckets: err.Error()}",
+            "schema": {
+              "type": "string"
             }
-        },
-        "backends.S3Key": {
-            "type": "object",
-            "properties": {
-                "access": {
-                    "description": "S3 access key",
-                    "type": "string"
-                },
-                "endpoint": {
-                    "description": "S3 gateway url",
-                    "type": "string"
-                },
-                "secret": {
-                    "description": "S3 secret key",
-                    "type": "string"
-                }
-            }
+          }
         }
+      }
+    },
+    "/file/{bucket}": {
+      "post": {
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "file"
+        ],
+        "summary": "Upload file",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "bucket name",
+            "name": "bucket",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "file",
+            "description": "file path",
+            "name": "file",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "{failed to upload file: err.Error()}",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/file/{bucket}/{file}": {
+      "get": {
+        "produces": [
+          "application/octet-stream"
+        ],
+        "tags": [
+          "file"
+        ],
+        "summary": "Download file",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "bucket name",
+            "name": "bucket",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "file name",
+            "name": "file",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "{failed to download file: err.Error()}",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "file"
+        ],
+        "summary": "Delete file",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "bucket name",
+            "name": "bucket",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "file name",
+            "name": "file",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "{failed to delete file: err.Error()}",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/key/{bucket}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Query user key of the bucket",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "bucket name",
+            "name": "bucket",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "UM id",
+            "name": "um",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "S3 info",
+            "schema": {
+              "$ref": "#/definitions/backends.S3Key"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "404": {
+            "description": "{failed to get key: err.Error()}",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/user/{user}": {
+      "post": {
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Set S3 user info",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "user name",
+            "name": "user",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "s3 endpoint url",
+            "name": "endpoint",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "s3 access key",
+            "name": "accesskey",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "s3 secret key",
+            "name": "secretkey",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "boolean",
+            "description": "ssl or not, default is false",
+            "name": "ssl",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "s3 location",
+            "name": "location",
+            "in": "formData"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        }
+      }
     }
+  },
+  "definitions": {
+    "backends.BucketInfo": {
+      "type": "object",
+      "properties": {
+        "creationDate": {
+          "description": "Date the bucket was created.",
+          "type": "string"
+        },
+        "name": {
+          "description": "The name of the bucket.",
+          "type": "string"
+        }
+      }
+    },
+    "backends.FileStat": {
+      "type": "object",
+      "properties": {
+        "lastModified": {
+          "description": "Date and time the object was last modified.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the object",
+          "type": "string"
+        },
+        "size": {
+          "description": "Size in bytes of the object.",
+          "type": "integer"
+        }
+      }
+    },
+    "backends.S3Key": {
+      "type": "object",
+      "properties": {
+        "access": {
+          "description": "S3 access key",
+          "type": "string"
+        },
+        "endpoint": {
+          "description": "S3 gateway url",
+          "type": "string"
+        },
+        "secret": {
+          "description": "S3 secret key",
+          "type": "string"
+        }
+      }
+    }
+  }
 }

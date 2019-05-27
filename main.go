@@ -14,8 +14,10 @@ import (
 
 var (
     config backends.Config
-    user   *backends.S3UserInfo
-    admin  *backends.S3UserInfo
+)
+
+const (
+    YamlConfigFile = "config.yaml"
 )
 
 type Bucket struct {
@@ -32,9 +34,12 @@ func main() {
     flag.Parse()
     defer glog.Flush()
 
-    utils.LoadConfig("config.yaml", &config)
-    user = config.Users["user"]
-    admin = config.Users["admin"]
+    utils.LoadConfig(YamlConfigFile, &config)
+    //utils.GenerateRSAKey(2048, "private.pem", "public.pem")
+    //for _,v := range config.Users {
+    //    v.AccessKey,_ = utils.RsaDecrypt(v.AccessKey, "private.pem")
+    //    v.SecretKey,_ = utils.RsaDecrypt(v.SecretKey, "private.pem")
+    //}
 
     //gin.SetMode(gin.ReleaseMode)
     //r := gin.New()
@@ -50,6 +55,14 @@ func main() {
     r.GET("file/:bucket/:file", downloadFile)
     r.DELETE("file/:bucket/:file", deleteFile)
     r.GET("/key/:bucket", getUserKey)
+    r.POST("/user/:user", setUserKey)
+    r.POST("/reload", func(c *gin.Context) {
+        if err := utils.LoadConfig(YamlConfigFile, &config); err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"failed to reload config": err.Error()})
+        } else {
+            c.JSON(http.StatusOK, "")
+        }
+    })
     r.GET("/health", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{
             "message": "ok",
@@ -67,7 +80,8 @@ func main() {
 }
 
 func listBuckets(c *gin.Context) {
-    if buckets,err := user.ListBuckets(); err != nil {
+    cloud := config.GetUserConfig("cloud")
+    if buckets,err := cloud.ListBuckets(); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to get bucket list": err.Error()})
     } else {
         c.JSON(http.StatusOK, buckets)
@@ -80,7 +94,8 @@ func createBucket(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if err := user.CreateBucket(c.Param("bucket")); err != nil {
+    cloud := config.GetUserConfig("cloud")
+    if err := cloud.CreateBucket(c.Param("bucket")); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to create bucket": err.Error()})
     } else {
         c.String(http.StatusCreated, "")
@@ -93,7 +108,8 @@ func deleteBucket(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if err := user.RemoveBucket(c.Param("bucket")); err != nil {
+    cloud := config.GetUserConfig("cloud")
+    if err := cloud.RemoveBucket(c.Param("bucket")); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to remove bucket": err.Error()})
     } else {
         c.String(http.StatusOK, "")
@@ -107,7 +123,8 @@ func listBucket(c *gin.Context) {
         return
     }
     recursive,_ := strconv.ParseBool(c.DefaultQuery("recursive", "false"))
-    if results,err := user.ListBucket(c.Param("bucket"), c.Query("prifix"), recursive); err != nil {
+    cloud := config.GetUserConfig("cloud")
+    if results,err := cloud.ListBucket(c.Param("bucket"), c.Query("prifix"), recursive); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to list bucket": err.Error()})
     } else {
         c.JSON(http.StatusOK, results)
@@ -120,7 +137,8 @@ func getBucketPolicy(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
-    if policy,err := user.GetBucketPolicy(bucket.BucketName); err != nil {
+    cloud := config.GetUserConfig("cloud")
+    if policy,err := cloud.GetBucketPolicy(bucket.BucketName); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to get bucket policy": err.Error()})
     } else {
         c.String(http.StatusOK, policy)
@@ -145,7 +163,8 @@ func uploadFile(c *gin.Context) {
     //	return
     //}
 
-    if err := user.UploadFile(bucket.BucketName, file); err != nil {
+    cloud := config.GetUserConfig("cloud")
+    if err := cloud.UploadFile(bucket.BucketName, file); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to upload file": err.Error()})
     } else {
         c.String(http.StatusCreated, "")
@@ -160,7 +179,8 @@ func downloadFile(c *gin.Context) {
         return
     }
 
-    if object,err := user.DownloadFile(f.BucketName, f.FileName); err != nil {
+    cloud := config.GetUserConfig("cloud")
+    if object,err := cloud.DownloadFile(f.BucketName, f.FileName); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to download file": err.Error()})
     } else {
         if stat,err := object.Stat(); err != nil {
@@ -182,7 +202,8 @@ func deleteFile(c *gin.Context) {
         return
     }
 
-    if err := user.RemoveFile(f.BucketName, f.FileName); err != nil {
+    cloud := config.GetUserConfig("cloud")
+    if err := cloud.RemoveFile(f.BucketName, f.FileName); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to delete file": err.Error()})
     } else {
         c.String(http.StatusOK, "")
@@ -195,9 +216,25 @@ func getUserKey(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
         return
     }
+    admin := config.GetUserConfig("admin")
     if key,err := admin.GetUserOfBucket(bucket.BucketName); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to get user key": err.Error()})
     } else {
+        glog.Errorf(c.Query("um"))
         c.JSON(http.StatusOK, key)
     }
+}
+
+func setUserKey(c *gin.Context) {
+    ssl,_ := strconv.ParseBool(c.DefaultPostForm("ssl", "false"))
+    userInfo := backends.S3UserInfo {
+        Endpoint: c.PostForm("endpoint"),
+        AccessKey: c.PostForm("accesskey"),
+        SecretKey: c.PostForm("secretkey"),
+        SSL: ssl,
+        Location: c.DefaultPostForm("location", "us-east-1"),
+    }
+    config.Users[c.Param("user")] = &userInfo
+    utils.SaveConfig(YamlConfigFile, config)
+    c.JSON(http.StatusOK, "")
 }
