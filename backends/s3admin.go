@@ -51,5 +51,5 @@ func (s3client *S3UserInfo) GetUserOfBucket(bucketName string) (*S3Key, error) {
             return &S3Key{AccessKey: key.AccessKey, SecretKey: key.SecretKey, Endpoint: s3client.Endpoint}, nil
         }
     }
-    return nil, fmt.Errorf("Bucket user key doesn't exist\n", bucketName)
+    return nil, fmt.Errorf("Bucket %s user key doesn't exist", bucketName)
 }

@@ -3,6 +3,7 @@ package backends
 import (
     "time"
     "github.com/file-api-server/utils"
+    "github.com/golang/glog"
 )
 
 type S3UserInfo struct {
@@ -32,6 +33,9 @@ type S3Key struct {
 }
 
 func (conf *Config) GetUserConfig(userName string) *S3UserInfo {
+    if _,ok := conf.Users[userName]; !ok {
+        glog.Fatalf("User %s config doesn't exsit in yaml", userName)
+    }
     return conf.Users[userName]
 }
 
@@ -46,4 +50,19 @@ func (conf *Config) SetUserConfig(userName, privateFile, publicFile, configFile 
         v.AccessKey,_ = utils.RsaDecrypt(v.AccessKey, privateFile)
         v.SecretKey,_ = utils.RsaDecrypt(v.SecretKey, privateFile)
     }
+}
+
+func (conf *Config) SetBucketConfig(um, configFile string, bucket map[string]string) {
+    if conf.Buckets == nil {
+        conf.Buckets = make(map[string]map[string]string)
+    }
+    conf.Buckets[um] = bucket
+    utils.SaveConfig(configFile, conf)
+}
+
+func (conf *Config) GetBucketConfig(um, bucket string) (string, bool) {
+    if _,ok := conf.Buckets[um]; ok {
+        return conf.Buckets[um][bucket], ok
+    }
+    return "", false
 }

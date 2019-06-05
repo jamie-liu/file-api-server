@@ -9,15 +9,13 @@ import (
     "net/http"
     "flag"
     "strconv"
+    "os"
     _ "github.com/file-api-server/statik"
 )
 
 var (
     config backends.Config
-)
-
-const (
-    YamlConfigFile = "config.yaml"
+    yamlConfigFile string
 )
 
 type Bucket struct {
@@ -34,7 +32,10 @@ func main() {
     flag.Parse()
     defer glog.Flush()
 
-    utils.LoadConfig(YamlConfigFile, &config)
+    if yamlConfigFile = os.Getenv("CONFIG"); yamlConfigFile == "" {
+        glog.Fatalf("CONFIG env not set")
+    }
+    utils.LoadConfig(yamlConfigFile, &config)
     //utils.GenerateRSAKey(2048, "private.pem", "public.pem")
     //for _,v := range config.Users {
     //    v.AccessKey,_ = utils.RsaDecrypt(v.AccessKey, "private.pem")
@@ -57,7 +58,7 @@ func main() {
     r.GET("/key/:bucket", getUserKey)
     r.POST("/user/:user", setUserKey)
     r.POST("/reload", func(c *gin.Context) {
-        if err := utils.LoadConfig(YamlConfigFile, &config); err != nil {
+        if err := utils.LoadConfig(yamlConfigFile, &config); err != nil {
             c.JSON(http.StatusNotFound, gin.H{"failed to reload config": err.Error()})
         } else {
             c.JSON(http.StatusOK, "")
@@ -65,7 +66,7 @@ func main() {
     })
     r.GET("/health", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{
-            "message": "ok",
+            "health": "ok",
         })
     })
 
@@ -91,7 +92,7 @@ func listBuckets(c *gin.Context) {
 func createBucket(c *gin.Context) {
     var bucket Bucket
     if err := c.ShouldBindUri(&bucket); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.String(http.StatusBadRequest, err.Error())
         return
     }
     cloud := config.GetUserConfig("cloud")
@@ -105,7 +106,7 @@ func createBucket(c *gin.Context) {
 func deleteBucket(c *gin.Context) {
     var bucket Bucket
     if err := c.ShouldBindUri(&bucket); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.String(http.StatusBadRequest, err.Error())
         return
     }
     cloud := config.GetUserConfig("cloud")
@@ -119,7 +120,7 @@ func deleteBucket(c *gin.Context) {
 func listBucket(c *gin.Context) {
     var bucket Bucket
     if err := c.ShouldBindUri(&bucket); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.String(http.StatusBadRequest, err.Error())
         return
     }
     recursive,_ := strconv.ParseBool(c.DefaultQuery("recursive", "false"))
@@ -134,7 +135,7 @@ func listBucket(c *gin.Context) {
 func getBucketPolicy(c *gin.Context) {
     var bucket Bucket
     if err := c.ShouldBindUri(&bucket); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.String(http.StatusBadRequest, err.Error())
         return
     }
     cloud := config.GetUserConfig("cloud")
@@ -148,7 +149,7 @@ func getBucketPolicy(c *gin.Context) {
 func uploadFile(c *gin.Context) {
     var bucket Bucket
     if err := c.ShouldBindUri(&bucket); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"Bad Uri": err.Error()})
+        c.String(http.StatusBadRequest, err.Error())
         return
     }
 
@@ -175,7 +176,7 @@ func downloadFile(c *gin.Context) {
     var f File
 
     if err := c.ShouldBindUri(&f); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.String(http.StatusBadRequest, err.Error())
         return
     }
 
@@ -198,7 +199,7 @@ func deleteFile(c *gin.Context) {
     var f File
 
     if err := c.ShouldBindUri(&f); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.String(http.StatusBadRequest, err.Error())
         return
     }
 
@@ -213,14 +214,14 @@ func deleteFile(c *gin.Context) {
 func getUserKey(c *gin.Context) {
     var bucket Bucket
     if err := c.ShouldBindUri(&bucket); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
+        c.String(http.StatusBadRequest, err.Error())
         return
     }
     admin := config.GetUserConfig("admin")
     if key,err := admin.GetUserOfBucket(bucket.BucketName); err != nil {
         c.JSON(http.StatusNotFound, gin.H{"failed to get user key": err.Error()})
     } else {
-        glog.Errorf(c.Query("um"))
+        config.SetBucketConfig(c.Query("um"), "config.yaml", map[string]string{bucket.BucketName: "rw"})
         c.JSON(http.StatusOK, key)
     }
 }
@@ -235,6 +236,6 @@ func setUserKey(c *gin.Context) {
         Location: c.DefaultPostForm("location", "us-east-1"),
     }
     config.Users[c.Param("user")] = &userInfo
-    utils.SaveConfig(YamlConfigFile, config)
+    utils.SaveConfig(yamlConfigFile, config)
     c.JSON(http.StatusOK, "")
 }
